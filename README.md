@@ -12,7 +12,7 @@ Comes in two flavours, `:base` which is just PLV8 and PostGIS, and `:testing` wh
 To build the `base` image:
 
 ```sh
-docker build --target=base -t centreforea/postgres-plv8-postgis:base .
+docker build --target=base -t centreforea/postgres-plv8-postgis:plv8 .
 ```
 
 To build the `testing` image:
