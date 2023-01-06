@@ -1,6 +1,6 @@
 # Postgres/PLV8/Postgis/pg_tap
 
-A Docker image for Postgres 9.6 which combines:
+A Docker image for Postgres 12 which combines:
 - The [PLV8](https://github.com/plv8/plv8) scripting language (Javascript functions in Postgres)
 - [PostGIS](https://postgis.net/) geospatial tools
 - Theory's [pg_tap](https://github.com/theory/pgtap) utility for database testing
@@ -12,13 +12,21 @@ Comes in two flavours, `:base` which is just PLV8 and PostGIS, and `:testing` wh
 To build the `base` image:
 
 ```sh
-docker build --target=base -t centreforea/postgres-plv8-postgis:plv8 .
+docker build --target=plv8 -t centreforea/postgres-plv8-postgis:plv8-v12 .
 ```
 
 To build the `testing` image:
 
 ```sh
-docker build --target=testing -t centreforea/postgres-plv8-postgis:testing .
+docker build --target=testing -t centreforea/postgres-plv8-postgis:testing-v12 .
+```
+
+## Push to Docker hub
+
+Push with the following command:
+
+```
+docker push centreforea/postgres-plv8-postgis:testing-v12
 ```
 
 ## Usage
@@ -26,7 +34,7 @@ docker build --target=testing -t centreforea/postgres-plv8-postgis:testing .
 Run with the following command:
 
 ```
-docker run --name postgres -v $PATH_TO_DATA_DIR:/var/lib/postgresql/data -p 5432:5432 centreforea/postgres-plv8-postgis:testing
+docker run --name postgres -v $PATH_TO_DATA_DIR:/var/lib/postgresql/data -p 5432:5432 centreforea/postgres-plv8-postgis:testing-v12
 ```
 
 **Flags explained:**

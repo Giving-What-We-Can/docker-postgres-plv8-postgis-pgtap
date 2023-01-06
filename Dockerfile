@@ -1,13 +1,13 @@
 # Base image with just PostGIS/PLV8
-FROM postgres:9.6 AS postgis
+FROM postgres:12 AS postgis
 
 # PostGIS installation
 # http://trac.osgeo.org/postgis/wiki/UsersWikiPostGIS23UbuntuPGSQL96Apt
-RUN sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt xenial-pgdg main" >> /etc/apt/sources.list' \
+RUN sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt bullseye-pgdg main" >> /etc/apt/sources.list' \
   && buildDependencies="wget" \
   && apt-get update && apt-get -y --no-install-recommends install ${buildDependencies} \
   && wget --quiet -O - http://apt.postgresql.org/pub/repos/apt/ACCC4CF8.asc | apt-key add - \
-  && apt-get install -y --no-install-recommends postgresql-9.6-postgis-2.3 postgresql-contrib-9.6 postgresql-9.6-postgis-scripts \
+  && apt-get install -y --no-install-recommends postgresql-12-postgis-3 postgresql-contrib-12 postgresql-12-postgis-3-scripts \
   && apt-get remove -y wget && apt-get autoremove -y && rm -rf /var/lib/apt/lists/*
 
 # COPY ./initdb-postgis.sh /docker-entrypoint-initdb.d/postgis.sh
@@ -15,24 +15,37 @@ RUN sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt xenial-pgdg main" >
 
 # PLV8 Installation
 FROM postgis AS plv8
-ENV PLV8_VERSION=v2.1.0 \
-    PLV8_SHASUM="207d712e919ab666936f42b29ff3eae413736b70745f5bfeb2d0910f0c017a5c  v2.1.0.tar.gz"
+ENV PLV8_VERSION='2.3.13' \
+    PLV8_SHASUM="1a96c559d98ad757e7494bf7301f0e6b0dd2eec6066ad76ed36cc13fec4f2390"
 
-RUN buildDependencies="make pkg-config libc++-dev libc++-dev \
-    build-essential ca-certificates curl git-core \
+RUN buildDependencies="build-essential \
+    ca-certificates \
+    curl \
+    git-core \
+    python \
+    gpp \
+    cpp \
+    pkg-config \
+    apt-transport-https \
+    cmake \
+    libc++-dev \
+    libc++abi-dev \
     postgresql-server-dev-$PG_MAJOR" \
+  && runtimeDependencies="libc++1 \
+    libtinfo5 \
+    libc++abi1" \
   && apt-get update \
-  && apt-get install -y --no-install-recommends ${buildDependencies} \
+  && apt-get install -y --no-install-recommends ${buildDependencies} ${runtimeDependencies} \
   && mkdir -p /tmp/build \
-  && curl -o /tmp/build/${PLV8_VERSION}.tar.gz -SL "https://github.com/plv8/plv8/archive/$PLV8_VERSION.tar.gz" \
+  && curl -o /tmp/build/v$PLV8_VERSION.tar.gz -SL "https://github.com/plv8/plv8/archive/v${PLV8_VERSION}.tar.gz" \
   && cd /tmp/build \
-  && echo ${PLV8_SHASUM} | sha256sum -c \
-  && tar -xzf /tmp/build/${PLV8_VERSION}.tar.gz -C /tmp/build/ \
-  && cd /tmp/build/plv8-${PLV8_VERSION#?} \
-  && sed -i 's/\(depot_tools.git\)/\1; cd depot_tools; git checkout 46541b4996f25b706146148331b9613c8a787e7e; rm -rf .git;/' Makefile.v8 \
+  && echo $PLV8_SHASUM v$PLV8_VERSION.tar.gz | sha256sum -c \
+  && tar -xzf /tmp/build/v$PLV8_VERSION.tar.gz -C /tmp/build/ \
+  && cd /tmp/build/plv8-$PLV8_VERSION \
   && make static \
-  && cd /tmp/build/plv8-${PLV8_VERSION#?} ls -al && make install \
-  && strip /usr/lib/postgresql/${PG_MAJOR}/lib/plv8.so \
+  && make install \
+  && strip /usr/lib/postgresql/${PG_MAJOR}/lib/plv8-${PLV8_VERSION}.so \
+  && rm -rf /root/.vpython_cipd_cache /root/.vpython-root \
   && apt-get clean \
   && apt-get remove -y ${buildDependencies} \
   && apt-get autoremove -y \
