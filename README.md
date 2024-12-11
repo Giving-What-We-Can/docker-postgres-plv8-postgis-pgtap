@@ -1,7 +1,6 @@
 # Postgres/PLV8/Postgis/pg_tap
 
 A Docker image for Postgres 15 which combines:
-- The [PLV8](https://github.com/plv8/plv8) scripting language (Javascript functions in Postgres)
 - [PostGIS](https://postgis.net/) geospatial tools
 - Theory's [pg_tap](https://github.com/theory/pgtap) utility for database testing
 
@@ -12,13 +11,13 @@ Comes in two flavours, `:base` which is just PLV8 and PostGIS, and `:testing` wh
 To build the `base` image:
 
 ```sh
-docker build --target=postgis -t centreforea/postgres-plv8-postgis:plv8-15 .
+docker build --target=base -t gwwc/postgres:15 .
 ```
 
 To build the `testing` image:
 
 ```sh
-docker build --target=testing -t centreforea/postgres-plv8-postgis:testing-v15 .
+docker build --target=testing -t gwwc/postgres:testing-15 .
 ```
 
 ## Push to Docker hub
@@ -26,7 +25,7 @@ docker build --target=testing -t centreforea/postgres-plv8-postgis:testing-v15 .
 Push with the following command:
 
 ```
-docker push centreforea/postgres-plv8-postgis:testing-v15
+docker push gwwc/postgres:testing-15
 ```
 
 ## Usage
@@ -34,7 +33,7 @@ docker push centreforea/postgres-plv8-postgis:testing-v15
 Run with the following command:
 
 ```
-docker run --name postgres -v $PATH_TO_DATA_DIR:/var/lib/postgresql/data -p 5432:5432 centreforea/postgres-plv8-postgis:testing-v15
+docker run --name postgres -v $PATH_TO_DATA_DIR:/var/lib/postgresql/data -p 5432:5432 gwwc/postgres:testing-v15
 ```
 
 **Flags explained:**

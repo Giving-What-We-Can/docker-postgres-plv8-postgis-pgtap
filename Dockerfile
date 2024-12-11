@@ -1,33 +1,77 @@
-# Base image with just PostGIS/PLV8
-FROM sibedge/postgres-plv8:15.3-3.1.7-bookworm AS postgis
+# syntax=docker/dockerfile:1.4
 
-ENV LC_ALL=C
+# Base image with PostGIS
+FROM postgis/postgis:15-3.4-alpine AS base
 
-# PostGIS installation
-# http://trac.osgeo.org/postgis/wiki/UsersWikiPostGIS23UbuntuPGSQL96Apt
-RUN sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt bookworm-pgdg main" >> /etc/apt/sources.list' \
-  && buildDependencies="wget" \
-  && apt-get update && apt-get -y --no-install-recommends install ${buildDependencies} \
-  && wget --quiet -O - http://apt.postgresql.org/pub/repos/apt/ACCC4CF8.asc | apt-key add - \
-  && apt-get install -y --no-install-recommends postgresql-$PG_MAJOR-postgis-3 postgresql-contrib-$PG_MAJOR postgresql-$PG_MAJOR-postgis-3-scripts \
-  && apt-get clean && apt-get remove -y ${buildDependencies} && apt-get autoremove -y && apt-get autoclean -y && rm -rf /var/lib/apt/lists/*
+# Remove default initialization scripts
+RUN rm -rf /docker-entrypoint-initdb.d/*
 
-# ==============================================================================
-# Testing image where we build pg_tap
-FROM postgis as testing
+# Add initialization script
+COPY <<-'EOF' /docker-entrypoint-initdb.d/10-init-postgis.sh
+#!/bin/bash
+set -e
 
-ENV PGTAP_VERSION v1.2.0
+# Function to initialize the database
+init_db() {
+    psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL
+        -- Create postgis schema
+        CREATE SCHEMA IF NOT EXISTS postgis;
 
-RUN buildDependencies="make ca-certificates git-core patch postgresql-server-dev-$PG_MAJOR" \
-  && apt-get update \
-  && apt-get install -y --no-install-recommends ${buildDependencies} perl \
-  && git clone https://github.com/theory/pgtap \
-  && cpan TAP::Parser::SourceHandler::pgTAP \
-  && cd pgtap \
-  && git checkout ${PGTAP_VERSION} \
-  && make \
-  && make install \
-  && apt-get clean \
-  && apt-get remove -y ${buildDependencies} \
-  && apt-get autoremove -y && apt-get autoclean -y\
-  && rm -rf /tmp/build /var/lib/apt/lists/*
+        -- Set search path for installation
+        SET search_path TO postgis, public;
+
+        -- Install PostGIS into postgis schema
+        CREATE EXTENSION IF NOT EXISTS postgis SCHEMA postgis;
+
+        -- Verify installation schema
+        SELECT n.nspname as schema_name, e.extname as extension
+        FROM pg_extension e
+        JOIN pg_namespace n ON n.oid = e.extnamespace
+        WHERE e.extname = 'postgis';
+EOSQL
+}
+
+# Call initialization function
+init_db
+EOF
+
+# Make the init script executable
+RUN chmod +x /docker-entrypoint-initdb.d/10-init-postgis.sh
+
+# Testing image with pgTAP
+FROM base AS testing
+
+ARG PGTAP_VERSION=1.3.1
+
+# Install dependencies and build pgTAP
+RUN set -x && \
+    apk update && \
+    apk add --no-cache \
+        perl \
+        perl-dev \
+        build-base \
+        postgresql-dev \
+        git \
+        make \
+        libc-dev \
+        pkgconf \
+        clang15 \
+        llvm15 \
+    && git clone --branch "v${PGTAP_VERSION}" https://github.com/theory/pgtap.git \
+    && cd pgtap \
+    && make CUSTOM_CC=gcc \
+    && make install \
+    && cd .. \
+    && rm -rf pgtap \
+    && apk del \
+        perl-dev \
+        build-base \
+        postgresql-dev \
+        git \
+        make \
+        libc-dev \
+        pkgconf \
+        clang15 \
+        llvm15
+
+EXPOSE 5432
