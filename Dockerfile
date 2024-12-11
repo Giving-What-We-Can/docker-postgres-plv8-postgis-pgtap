@@ -1,35 +1,44 @@
-FROM --platform=$TARGETPLATFORM postgres:15.7-bookworm AS base
+# syntax=docker/dockerfile:1.4
 
-# Install PostGIS packages
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends \
-        postgresql-15-postgis-3 \
-        postgresql-15-postgis-3-scripts \
-    && rm -rf /var/lib/apt/lists/*
+# Base image with PostGIS already installed
+FROM postgis/postgis:15-3.4-alpine AS base
 
+ENV POSTGIS_SCHEMA=postgis
+
+# Testing image with pgTAP
 FROM base AS testing
 
-ENV PGTAP_VERSION=v1.2.0
+ARG PGTAP_VERSION=1.3.1
 
-# Install dependencies and pgTAP
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends \
-        build-essential \
-        git \
+# Install dependencies and build pgTAP with verbose output
+RUN set -x && \
+    apk update && \
+    apk add --no-cache \
         perl \
-        ca-certificates \
-        postgresql-server-dev-15 \
-        cpanminus \
-    && git clone --depth 1 -b ${PGTAP_VERSION} https://github.com/theory/pgtap.git /tmp/pgtap \
-    && cd /tmp/pgtap \
-    && make \
-    && make install \
-    && cpanm --notest TAP::Parser::SourceHandler::pgTAP \
-    && cd / \
-    && rm -rf /tmp/pgtap /root/.cpan \
-    && apt-get remove -y \
-        build-essential \
+        perl-dev \
+        build-base \
+        postgresql-dev \
         git \
-        postgresql-server-dev-15 \
-    && apt-get autoremove -y \
-    && rm -rf /var/lib/apt/lists/*
+        make \
+        libc-dev \
+        pkgconf \
+        clang15 \
+        llvm15 \
+    && git clone --branch "v${PGTAP_VERSION}" https://github.com/theory/pgtap.git \
+    && cd pgtap \
+    && make CUSTOM_CC=gcc \
+    && make install \
+    && cd .. \
+    && rm -rf pgtap \
+    && apk del \
+        perl-dev \
+        build-base \
+        postgresql-dev \
+        git \
+        make \
+        libc-dev \
+        pkgconf \
+        clang15 \
+        llvm15
+
+EXPOSE 5432
